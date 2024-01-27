@@ -1,0 +1,134 @@
+html {
+  width: 100%;
+  height: 100%;
+  font-size: 1rem;
+}
+body {
+  margin: 0;
+  height: 100%;
+  width: 100%;
+  display: block;
+  overflow: hidden;
+  font-family: sans-serif;
+  background-color: white;
+}
+#app {
+  margin: 0;
+  height: 100%;
+  width: 100%;
+  background-color: inherit;
+}
+a {
+  color: inherit;
+  text-decoration: none;
+}
+.margin-bottom {
+  margin-bottom: 1rem;
+}
+.margin-right {
+  margin-right: 0.5rem;
+}
+article.page {
+  padding: 1rem;
+  width: calc(100% - 2rem);
+  height: calc(100% - 2rem);
+  background-color: inherit;
+}
+article.splash {
+  font-size: 1.4rem;
+  vertical-align: middle;
+  text-align: center;
+  z-index: 1000;
+}
+article.toast {
+  background-color: inherit;
+  position: absolute;
+  border-radius: 0.5rem;
+  box-shadow: 0 0 1px 1px rgba(0,0,0,0.1);
+  box-sizing: border-box;
+  margin: 1rem;
+  padding: 1rem;
+  width: calc(100% - 2rem);
+  top: calc(100% - 6rem);
+  line-height: 2rem;
+}
+.content-flex {
+  display: flex;
+  justify-content: space-around;
+  flex-flow: row wrap;
+  align-items: stretch;
+}
+article.tiles, .tile-container {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+}
+.tile-row {
+  width: 100%;
+}
+.tile {
+  height: 10rem;
+  width: 10rem;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+  box-shadow: 0 0 1px 1px rgba(0,0,0,0.1);
+  box-sizing: border-box;
+  margin-right: 0.5rem;
+  margin-bottom: 0.5rem;
+  padding: 0.5rem;
+  overflow: hidden;
+  cursor: pointer;
+}
+.tile:hover {
+  background-color: rgba(0,0,0,0.01);
+}
+.tile-action {
+  text-align: right;
+  vertical-align: middle;
+  height: 2rem;
+  width: 2rem;
+  margin-right: 1px;
+  position: absolute;
+  top: 0rem;
+  right: 0rem;
+  z-index: 1;
+}
+button {
+  min-width: 2rem;
+  height: 1.8rem;
+  line-height: 1.8rem;
+}
+.space-children > *:not(:last-child) {
+  margin-right: 0.3rem;
+}
+.bullet {
+  display: inline-block;
+  text-align: center;
+  border-radius: 50%;
+  box-shadow: 0 0 1px 1px rgba(0,0,0,0.1);
+  box-sizing: border-box;
+  cursor: pointer;
+  z-index: 1;
+  opacity: 1;
+  width: 1.8rem;
+  height: 1.8rem;
+  line-height: 1.8rem;
+}
+.bullet:hover {
+  background-color: rgba(0,0,0,0.01);
+}
+.bar-flex-row span {
+  line-height: 1.8rem;
+}
+.bar-flex-row {
+	min-width: 100%;
+	display: flex;
+	flex-direction: row;
+}
+.bar-flex-row-content {
+	flex-grow: 1;
+}
+.bar-flex-row-end {
+  justify-content: flex-end;
+}
