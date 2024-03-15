@@ -26,13 +26,29 @@
       <button title="Mute" v-on:click="toggleMute()">{{muted ? '&#x1f507;' : '&#x1f50a;'}}</button>
       <button title="Volume Up" v-on:click="changeVolume(1)">&#x2795;</button>
       <span class="bar-flex-row-content"></span>
-      <router-link class="bullet" title="Info" v-on:click="edit = false;" to="/info">&#x1F527;</router-link>
+      <router-link class="bullet" title="Presets" to="/presets">&#x1f4cb;</router-link>
     </article>
     <article class="margin-bottom margin-right">
       <p>{{ name }}</p>
       <p>{{ firstLine }}</p>
       <p>{{ secondLine }}</p>
     </article>
+  </article>
+</script>
+<script type="text/x-template" id="presets-template">
+  <article class="page">
+    <article class="bar-flex-row margin-bottom">
+      <button title="Refresh" v-on:click="refresh()">&#x21bb;</button>
+      <span class="bar-flex-row-content"></span>
+      <h1>Presets</h1>
+      <span class="bar-flex-row-content"></span>
+      <router-link class="bullet" title="Close" to="/">&#x2715;</router-link>
+    </article>
+    <ul>
+      <li v-for="item in items" v-on:click="select(item)">
+        {{item.name}}
+      </li>
+    </ul>
   </article>
 </script>
 <script type="text/x-template" id="info-template">

@@ -49,12 +49,19 @@ local options = tables.createArgumentTable(arg, {
       action = {
         title = 'The command line action',
         type = 'string',
-        enum = {'get', 'set'},
+        enum = {'get', 'set', 'list'},
       },
       node = {
         title = 'The API name to use',
         type = 'string',
         default = 'netRemote.sys.power',
+      },
+      maxItems = {
+        title = 'The list maximum number of items',
+        type = 'integer',
+        default = 10,
+        minimum = 0,
+        maximum = 1000,
       },
       value = {
         title = 'The value to set',
@@ -127,6 +134,17 @@ local parserMap = {
   c8_array = tostring,
 }
 
+local function getValue(xe)
+  local xv = xe[1]
+  local v = xv[1]
+  if v ~= nil then
+    local p = parserMap[xv.name]
+    if p then
+      return p(v)
+    end
+  end
+end
+
 local function formatApiResponse(xr)
   if xr.name == 'fsapiResponse' then
     local r = {}
@@ -135,16 +153,23 @@ local function formatApiResponse(xr)
         r.status = xe[1]
         r.success = r.status == 'FS_OK'
       elseif xe.name == 'value' then
-        local xv = xe[1]
-        local v = xv[1]
-        if v ~= nil then
-          local p = parserMap[xv.name]
-          if p then
-            r.value = p(v)
-          end
-        end
+        r.value = getValue(xe)
       elseif xe.name == 'node' or xe.name == 'sessionId' then
         r[xe.name] = xe[1]
+      elseif xe.name == 'item' then
+        local item = {}
+        for _, xf in ipairs(xe) do
+          if xf.name == 'field' and xf.attr.name then
+            item[xf.attr.name] = getValue(xf)
+          end
+        end
+        if next(item) then
+          item.key = xe.attr.key
+          if not r.items then
+            r.items = {}
+          end
+          table.insert(r.items, item)
+        end
       end
     end
     return r
@@ -163,6 +188,7 @@ local function formatApiResponse(xr)
 end
 
 local function decodeApiResponse(body)
+  logger:finer('Body response is "%s"', body)
   local xr = xml.decode(body)
   return formatApiResponse(xr)
 end
@@ -221,15 +247,42 @@ local function terminate()
 end
 
 if options.action then
+  local function printXml(text)
+    print('body text', text)
+    local status, xr = pcall(xml.decode, text)
+    print('XML response', status, tables.stringify(xr, '  '))
+  end
   if options.action == 'get' then
     client:fetch(formatApiPath('GET/'..options.node, {
       pin = pin
     })):next(getText):next(function(text)
-      print('body text', text)
+      printXml(text)
       return text
     end):next(decodeApiResponse):next(function(value)
       print('response', json.stringify(value, '  '))
     end):next(terminate, print)
+  elseif options.action == 'set' then
+    client:fetch(formatApiPath('SET/'..options.node, {
+      value = options.value,
+      pin = pin
+    })):next(getText):next(function(text)
+      printXml(text)
+      return text
+    end):next(decodeApiResponse):next(function(value)
+      print('response', json.stringify(value, '  '))
+    end):next(terminate, print)
+  elseif options.action == 'list' then
+    client:fetch(formatApiPath('LIST_GET_NEXT/'..options.node, {
+      maxItems = options.maxItems,
+      pin = pin
+    })):next(getText):next(function(text)
+      printXml(text)
+      return text
+    end):next(decodeApiResponse):next(function(value)
+      print('response', json.stringify(value, '  '))
+    end):next(terminate, print)
+  else
+    print('unknown action', options.action)
   end
   event:loop()
   os.exit()
@@ -254,6 +307,12 @@ local httpContexts = {
         ['get(node)?method=GET'] = function(_, node)
           logger:info('path is "%s"', node)
           return client:fetch(formatApiPath('GET/'..node, {
+            pin = pin
+          })):next(getText):next(decodeApiResponse)
+        end,
+        ['list(node)?method=GET'] = function(_, node)
+          return client:fetch(formatApiPath('LIST_GET_NEXT/'..node..'/-1', {
+            maxItems = 1000,
             pin = pin
           })):next(getText):next(decodeApiResponse)
         end,

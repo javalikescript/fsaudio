@@ -48,8 +48,7 @@ var homeTemplate = {
       secondLine: '',
       on: false,
       volume: 0,
-      muted: false,
-      edit: false
+      muted: false
     };
   },
   //beforeRouteEnter: function(to, from, next) { next(); },
@@ -107,19 +106,41 @@ var homeTemplate = {
   }
 };
 
-var infoTemplate = {
-  template: '#info-template',
+var presetsTemplate = {
+  template: '#presets-template',
   data: function() {
     return {
-      config: config
+      config: config,
+      items: []
     };
+  },
+  beforeRouteEnter (to, from, next) {
+    next(function(self) {
+      self.refresh();
+    });
+  },
+  methods: {
+    refresh: function() {
+      var self = this;
+      post('netRemote.nav.state', 1).then(function() {
+        return fetch('rest/fsapi/netRemote.nav.presets/list').then(rejectIfNotOk).then(getJson).then(rejectIfFailed).then(function(response) {
+          self.items = response.items;
+        });
+      });
+    },
+    select: function(item) {
+      //console.info('select', item);
+      post('netRemote.nav.action.selectPreset', item.key).then(function(response) {
+        router.back();
+      });
+    }
   }
 };
 
 var router = new VueRouter({
   routes: [
     { path: '/', component: homeTemplate },
-    { path: '/info', component: infoTemplate }
+    { path: '/presets', component: presetsTemplate }
   ]
 });
 
