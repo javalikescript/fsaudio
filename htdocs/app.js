@@ -22,7 +22,12 @@ function rejectIfFailed(response) {
 }
 
 function getResponse(responses, node) {
-  return responses.find(function(r) { return r.node === node; });
+  for (var i = 0; i < responses.length; i++) {
+    var r = responses[i];
+    if (r.node === node) {
+      return r;
+    }
+  }
 }
 
 function post(node, value) {
@@ -54,7 +59,7 @@ var homeTemplate = {
   //beforeRouteEnter: function(to, from, next) { next(); },
   //beforeRouteUpdate: function(to, from, next) { next(); },
   //mounted: function() {},
-  created() {
+  created: function() {
     this.$root.$refs.home = this;
     this.refresh();
   },
@@ -114,7 +119,7 @@ var presetsTemplate = {
       items: []
     };
   },
-  beforeRouteEnter (to, from, next) {
+  beforeRouteEnter: function(to, from, next) {
     next(function(self) {
       self.refresh();
     });
