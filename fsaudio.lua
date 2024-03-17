@@ -7,9 +7,8 @@ local File = require('jls.io.File')
 local tables = require('jls.util.tables')
 local json = require('jls.util.json')
 local HttpClient = require('jls.net.http.HttpClient')
-local FileHttpHandler = require('jls.net.http.handler.FileHttpHandler')
 local RestHttpHandler = require('jls.net.http.handler.RestHttpHandler')
-local ZipFileHttpHandler = require('jls.net.http.handler.ZipFileHttpHandler')
+local ResourceHttpHandler = require('jls.net.http.handler.ResourceHttpHandler')
 local TableHttpHandler = require('jls.net.http.handler.TableHttpHandler')
 local Url = require('jls.net.Url')
 local xml = require("jls.util.xml")
@@ -295,11 +294,11 @@ end
 -- HTTP contexts used by the web application
 local httpContexts = {
   -- HTTP resources
-  ['/(.*)'] = FileHttpHandler:new(File:new(scriptDir, 'htdocs'), nil, 'app.html'),
+  ['/(.*)'] = ResourceHttpHandler:new('htdocs/', 'app.html'),
   -- Context to retrieve the configuration
   ['/config/(.*)'] = TableHttpHandler:new(options, nil, true),
   -- Assets HTTP resources directory or ZIP file
-  ['/assets/(.*)'] = assetsZip:isFile() and not assetsDir:isDirectory() and ZipFileHttpHandler:new(assetsZip) or FileHttpHandler:new(assetsDir),
+  ['/(assets/.*)'] = ResourceHttpHandler:new(),
   -- Context for the application REST API
   ['/rest/(.*)'] = RestHttpHandler:new({
     fsapi = {
