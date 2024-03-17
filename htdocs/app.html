@@ -29,6 +29,8 @@
       <button title="Volume Up" v-on:click="changeVolume(1)">&#x2795;</button>
       <span class="bar-flex-row-content"></span>
       <router-link class="bullet" title="Presets" to="/presets">&#x1f4cb;</router-link>
+      <router-link class="bullet" title="Information" to="/info">&#x1f6c8;</router-link>
+      <router-link class="bullet" title="Configuration" to="/config">&#x1f527;</router-link>
     </article>
     <article class="margin-bottom margin-right">
       <p>{{ name }}</p>
@@ -46,24 +48,55 @@
       <span class="bar-flex-row-content"></span>
       <router-link class="bullet" title="Close" to="/">&#x2715;</router-link>
     </article>
-    <ul>
-      <li v-for="item in items" v-on:click="select(item)">
-        {{item.name}}
-      </li>
-    </ul>
+    <article class="margin-bottom margin-right">
+      <ul>
+        <li v-for="item in items" v-on:click="select(item)">
+          {{item.name}}
+        </li>
+      </ul>
+    </article>
+  </article>
+</script>
+<script type="text/x-template" id="config-template">
+  <article class="page">
+    <article class="bar-flex-row margin-bottom">
+      <h1>Configuration</h1>
+      <span class="bar-flex-row-content"></span>
+      <router-link class="bullet" title="Close" to="/">&#x2715;</router-link>
+    </article>
+    <article class="margin-bottom margin-right">
+      <input type="text" v-model="url" title="Device URL" />
+      <button v-on:click="discover()">&#x1f50d; Discover</button>
+      <button v-on:click="$router.back()">&#x2715; Cancel</button>
+    </article>
   </article>
 </script>
 <script type="text/x-template" id="info-template">
   <article class="page">
     <article class="bar-flex-row margin-bottom">
-      <h1>Info</h1>
-      <span class="bar-flex-row-content"></span>
-      <router-link class="bullet" title="Close" to="/">&#x2715;</router-link>
+      <h1>Information</h1>
     </article>
-    <p>
-      Nothing
-    </p>
-    <button v-on:click="$router.back()">&#x2715; Cancel</button>
+    <article class="margin-bottom margin-right">
+      <h2>Help</h2>
+      <p>FSAudio allows to remotely control your device.</p>
+      <h2>About</h2>
+      <p>A <a href="https://github.com/javalikescript/luajls" target="_blank">luajls</a> application, see <a href="https://github.com/javalikescript/fsaudio" target="_blank">sources</a>.</p>
+      <p>This application uses the following external software/libraries</p>
+      <ul>
+        <li><a href="https://www.lua.org/home.html" target="_blank">Lua</a> is licensed under the MIT license</li>
+        <li><a href="https://github.com/luvit/luv" target="_blank">luv</a> is licensed under the Apache License Version 2.0</li>
+        <li><a href="https://github.com/webview/webview/tree/9c1b0a888aa40039d501c1ea9f60b22a076a25ea" target="_blank">webview</a> is licensed under the MIT license</li>
+        <li><a href="https://github.com/brimworks/lua-zlib" target="_blank">lua_zlib</a> is licensed under the MIT license</li>
+        <li><a href="http://zlib.net/zlib_license.html" target="_blank">zlib</a> is licensed under the zlib license</li>
+        <li><a href="https://github.com/mpx/lua-cjson" target="_blank">lua-cjson</a> is licensed under the MIT license</li>
+        <li><a href="https://lunarmodules.github.io/luaexpat" target="_blank">luaexpat</a> is licensed under the MIT license</li>
+        <li><a href="https://libexpat.github.io/" target="_blank">Expat</a> is licensed under the MIT license</li>
+        <li><a href="https://github.com/github/fetch/releases" target="_blank">fetch</a> is licensed under the MIT license</li>
+        <li><a href="https://vuejs.org/" target="_blank">Vue.js</a> is licensed under the MIT license</li>
+        <li><a href="https://github.com/taylorhakes/promise-polyfill" target="_blank">promise</a> is licensed under the MIT license</li>
+      </ul>
+      <p>Your user agent is "{{ window.navigator.userAgent }}"</p>
+    </article>
   </article>
 </script>
 </body>

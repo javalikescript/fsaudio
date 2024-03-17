@@ -142,10 +142,34 @@ var presetsTemplate = {
   }
 };
 
+var configTemplate = {
+  template: '#config-template',
+  data: function() {
+    return {
+      config: config,
+      url: ''
+    };
+  },
+  methods: {
+    discover: function() {
+      var self = this;
+      fetch('rest/discover', {method: 'POST'}).then(rejectIfNotOk).then(getJson).then(function(response) {
+        self.url = 'http://' + response.ip + ':' + response.value.port;
+      });
+    }
+  }
+};
+
+var infoTemplate = {
+  template: '#info-template'
+};
+
 var router = new VueRouter({
   routes: [
     { path: '/', component: homeTemplate },
-    { path: '/presets', component: presetsTemplate }
+    { path: '/presets', component: presetsTemplate },
+    { path: '/config', component: configTemplate },
+    { path: '/info', component: infoTemplate }
   ]
 });
 

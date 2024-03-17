@@ -12,6 +12,8 @@ local ResourceHttpHandler = require('jls.net.http.handler.ResourceHttpHandler')
 local TableHttpHandler = require('jls.net.http.handler.TableHttpHandler')
 local Url = require('jls.net.Url')
 local xml = require("jls.util.xml")
+local dns = require('jls.net.dns')
+local UdpSocket = require('jls.net.UdpSocket')
 
 -- Extracts configuration from command line arguments
 local options = tables.createArgumentTable(arg, {
@@ -210,12 +212,68 @@ local function getText(response)
   end)
 end
 
+local function askMDNS(qName, qType)
+  return Promise:new(function(resolve, reject)
+    local mdnsAddress = '224.0.0.251'
+    local mdnsPort = 5353
+    local id = math.random(0xfff)
+    local function onReceived(err, data, addr)
+      if data then
+        local _, message = pcall(dns.decodeMessage, data)
+        if message.id == id then
+          for _, rr in ipairs(message.answers) do
+            if rr.value then
+              logger:fine('received answer from %t value %t', addr, rr.value)
+              resolve({value = rr.value, ip = addr.ip})
+            end
+          end
+        end
+      elseif err then
+        logger:warn('receive error %s', err)
+      else
+        logger:fine('receive no data')
+      end
+    end
+    logger:fine('Sending mDNS question name "%s" type %s with id %d', qName, qType, id)
+    local message = {
+      id = id,
+      questions = {{
+        name = qName,
+        type = qType,
+        class = dns.CLASSES.IN,
+        unicastResponse = true,
+      }}
+    }
+    local data = dns.encodeMessage(message)
+    logger:fine('sending data: (%l) %x', data, data)
+    local addresses = dns.getInterfaceAddresses()
+    logger:fine('Interface addresses: %t', addresses)
+    local senders = {}
+    for _, address in ipairs(addresses) do
+      local sender = UdpSocket:new()
+      sender:bind(address, 0)
+      logger:fine('sender bound to %s', address)
+      sender:receiveStart(onReceived)
+      sender:send(data, mdnsAddress, mdnsPort):next(function()
+        table.insert(senders, sender)
+      end, function(reason)
+        logger:warn('error while sending %s', reason)
+        sender:close()
+      end)
+    end
+    event:setTimeout(function()
+      for _, sender in ipairs(senders) do
+        sender:close()
+      end
+      reject('timeout')
+    end, 5000)
+  end)
+end
+
 -- Application local variables
 
 local scriptFile = File:new(arg[0]):getAbsoluteFile()
 local scriptDir = scriptFile:getParentFile()
-local assetsDir = File:new(scriptDir, 'assets')
-local assetsZip = File:new(scriptDir, 'assets.zip')
 
 local deviceUrl = options.url
 if not deviceUrl then
@@ -328,6 +386,11 @@ local httpContexts = {
         return client:fetch(formatApiPath('GET_MULTIPLE', query)):next(getText):next(decodeApiResponse)
       end,
     },
+    ['discover?method=POST'] = function()
+      return askMDNS('_undok._tcp.local', dns.TYPES.PTR):next(function(r)
+        return askMDNS(r.value, dns.TYPES.SRV)
+      end)
+    end,
   }),
 }
 
