@@ -66,7 +66,9 @@
     </article>
     <article class="margin-bottom margin-right">
       <input type="text" v-model="url" title="Device URL" />
+      <br />
       <button v-on:click="discover()">&#x1f50d; Discover</button>
+      <button v-on:click="apply()">&#x1f50d; Ok</button>
       <button v-on:click="$router.back()">&#x2715; Cancel</button>
     </article>
   </article>

@@ -2,6 +2,7 @@ os.setlocale('') -- set native locale
 
 local Promise = require('jls.lang.Promise')
 local logger = require('jls.lang.logger')
+local system = require('jls.lang.system')
 local event = require('jls.lang.event')
 local File = require('jls.io.File')
 local tables = require('jls.util.tables')
@@ -35,6 +36,11 @@ local options = tables.createArgumentTable(arg, {
         type = 'string',
         default = 'warn',
         enum = {'error', 'warn', 'info', 'config', 'fine', 'finer', 'finest', 'debug', 'all'},
+      },
+      discovery = {
+        title = 'Enable discovery',
+        type = 'boolean',
+        default = false,
       },
       url = {
         title = 'The FS device URL',
@@ -212,63 +218,88 @@ local function getText(response)
   end)
 end
 
-local function askMDNS(qName, qType)
-  return Promise:new(function(resolve, reject)
-    local mdnsAddress = '224.0.0.251'
-    local mdnsPort = 5353
-    local id = math.random(0xfff)
-    local function onReceived(err, data, addr)
-      if data then
-        local _, message = pcall(dns.decodeMessage, data)
-        if message.id == id then
-          for _, rr in ipairs(message.answers) do
-            if rr.value then
-              logger:fine('received answer from %t value %t', addr, rr.value)
-              resolve({value = rr.value, ip = addr.ip})
-            end
+local function askMDNS(qName, qType, callback, timeout)
+  local mdnsAddress = '224.0.0.251'
+  local mdnsPort = 5353
+  local id = math.random(0xfff)
+  local function onReceived(err, data, addr)
+    if data then
+      local _, message = pcall(dns.decodeMessage, data)
+      if message.id == id then
+        for _, rr in ipairs(message.answers) do
+          if rr.value then
+            logger:fine('received answer from %t value %t', addr, rr.value)
+            callback(nil, {value = rr.value, ip = addr.ip})
           end
         end
-      elseif err then
-        logger:warn('receive error %s', err)
-      else
-        logger:fine('receive no data')
       end
+    elseif err then
+      logger:warn('receive error %s', err)
+    else
+      logger:fine('receive no data')
     end
-    logger:fine('Sending mDNS question name "%s" type %s with id %d', qName, qType, id)
-    local message = {
-      id = id,
-      questions = {{
-        name = qName,
-        type = qType,
-        class = dns.CLASSES.IN,
-        unicastResponse = true,
-      }}
-    }
-    local data = dns.encodeMessage(message)
-    logger:fine('sending data: (%l) %x', data, data)
-    local addresses = dns.getInterfaceAddresses()
-    logger:fine('Interface addresses: %t', addresses)
-    local senders = {}
-    for _, address in ipairs(addresses) do
-      local sender = UdpSocket:new()
-      sender:bind(address, 0)
-      logger:fine('sender bound to %s', address)
-      sender:receiveStart(onReceived)
-      sender:send(data, mdnsAddress, mdnsPort):next(function()
-        table.insert(senders, sender)
-      end, function(reason)
-        logger:warn('error while sending %s', reason)
-        sender:close()
-      end)
-    end
-    event:setTimeout(function()
-      for _, sender in ipairs(senders) do
-        sender:close()
+  end
+  logger:fine('Sending mDNS question name "%s" type %s with id %d', qName, qType, id)
+  local message = {
+    id = id,
+    questions = {{
+      name = qName,
+      type = qType,
+      class = dns.CLASSES.IN,
+      unicastResponse = true,
+    }}
+  }
+  local data = dns.encodeMessage(message)
+  logger:fine('sending data: (%l) %x', data, data)
+  local addresses = dns.getInterfaceAddresses()
+  logger:fine('Interface addresses: %t', addresses)
+  local senders = {}
+  local count = 0
+  for _, address in ipairs(addresses) do
+    local sender = UdpSocket:new()
+    sender:bind(address, 0)
+    logger:fine('sender bound to %s', address)
+    sender:receiveStart(onReceived)
+    sender:send(data, mdnsAddress, mdnsPort):next(function()
+      table.insert(senders, sender)
+    end, function(reason)
+      logger:warn('error while sending %s', reason)
+      sender:close()
+    end):finally(function()
+      count = count + 1
+      if count == #addresses then
+        if #senders > 0 then
+          event:setTimeout(function()
+            for _, s in ipairs(senders) do
+              s:close()
+            end
+            callback()
+          end, timeout or 3000)
+        else
+          callback('unable to send')
+        end
       end
-      reject('timeout')
-    end, 5000)
-  end)
+    end)
+  end
 end
+
+local function lookupUrls(qName, callback, timeout)
+  local maxtime = system.currentTimeMillis() + timeout - 500
+  askMDNS(qName, dns.TYPES.PTR, function(err, ptr)
+    local time = system.currentTimeMillis()
+    if ptr and time < maxtime then
+      askMDNS(ptr.value, dns.TYPES.SRV, function(_, srv)
+        if srv and srv.value.port then
+          local url = string.format('http://%s:%s', srv.ip, srv.value.port)
+          callback(nil, url)
+        end
+      end, maxtime - time)
+    else
+      callback(err)
+    end
+  end, timeout)
+end
+
 
 -- Application local variables
 
@@ -297,6 +328,13 @@ local function createSession()
   end, function(reason)
     logger:warn('unable to create session due to "%s"', reason)
   end)
+end
+
+local function changeUrl(url)
+  client:close()
+  client = HttpClient:new({
+    url = url
+  })
 end
 
 local function terminate()
@@ -347,6 +385,12 @@ end
 
 if deviceUrl then
   --createSession()
+elseif options.discovery then
+  lookupUrls('_undok._tcp.local', function(_, url)
+    if url then
+      changeUrl(url)
+    end
+  end, 3000)
 end
 
 -- HTTP contexts used by the web application
@@ -387,9 +431,25 @@ local httpContexts = {
       end,
     },
     ['discover?method=POST'] = function()
-      return askMDNS('_undok._tcp.local', dns.TYPES.PTR):next(function(r)
-        return askMDNS(r.value, dns.TYPES.SRV)
+      local urls = {}
+      return Promise:new(function(resolve, reject)
+        lookupUrls('_undok._tcp.local', function(err, url)
+          if err then
+            reject(err)
+          elseif url then
+            table.insert(urls, url)
+          else
+            resolve(urls)
+          end
+        end, 3000)
       end)
+    end,
+    ['url?method=GET'] = function()
+      return client:getUrl()
+    end,
+    ['url?method=POST'] = function(exchange)
+      local request = exchange:getRequest()
+      changeUrl(request:getBody())
     end,
   }),
 }

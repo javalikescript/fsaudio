@@ -135,7 +135,7 @@ var presetsTemplate = {
     },
     select: function(item) {
       //console.info('select', item);
-      post('netRemote.nav.action.selectPreset', item.key).then(function(response) {
+      post('netRemote.nav.action.selectPreset', item.key).then(function() {
         router.back();
       });
     }
@@ -150,11 +150,30 @@ var configTemplate = {
       url: ''
     };
   },
+  beforeRouteEnter: function(to, from, next) {
+    next(function(self) {
+      fetch('rest/url').then(rejectIfNotOk).then(getText).then(function(url) {
+        self.url = url;
+      });
+    });
+  },
   methods: {
     discover: function() {
       var self = this;
-      fetch('rest/discover', {method: 'POST'}).then(rejectIfNotOk).then(getJson).then(function(response) {
-        self.url = 'http://' + response.ip + ':' + response.value.port;
+      fetch('rest/discover', {method: 'POST'}).then(rejectIfNotOk).then(getJson).then(function(urls) {
+        console.info('urls', urls);
+        self.url = urls[0];
+      });
+    },
+    apply: function() {
+      fetch('rest/url', {
+        method: 'POST',
+        headers: {
+          "Content-Type": "text/plain"
+        },
+        body: this.url
+      }).then(rejectIfNotOk).then(function() {
+        router.back();
       });
     }
   }
