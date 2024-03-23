@@ -4,7 +4,6 @@ local Promise = require('jls.lang.Promise')
 local logger = require('jls.lang.logger')
 local system = require('jls.lang.system')
 local event = require('jls.lang.event')
-local File = require('jls.io.File')
 local tables = require('jls.util.tables')
 local json = require('jls.util.json')
 local HttpClient = require('jls.net.http.HttpClient')
@@ -208,14 +207,32 @@ local function formatApiPath(path, query)
 end
 
 local function getText(response)
-  local status, reason = response:getStatusCode()
+  local status = response:getStatusCode()
   return response:text():next(function(text)
     logger:fine('response is "%s"', response)
     if status ~= 200 then
-      return Promise.reject(reason)
+      return Promise.reject(response)
     end
     return text
   end)
+end
+
+local function asFailure(exchange, e)
+  local status = 500
+  local r = {
+    status = 'Unknown',
+    success = false,
+  }
+  if e and e.getStatusCode then
+    local reponseStatus, responseReason = e:getStatusCode()
+    status = 502
+    r.status = 'Communication failure'
+    r.reponseStatus = reponseStatus
+    r.responseReason = responseReason
+  end
+  exchange:getResponse():setContentType('application/json')
+  exchange:setResponseStatusCode(status, 'Failure', json.stringify(r))
+  return false
 end
 
 local function askMDNS(qName, qType, callback, timeout)
@@ -303,19 +320,10 @@ end
 
 -- Application local variables
 
-local scriptFile = File:new(arg[0]):getAbsoluteFile()
-local scriptDir = scriptFile:getParentFile()
-
-local deviceUrl = options.url
-if not deviceUrl then
-  -- discover or indicate missing URL
-end
-
 local pin = options.pin
 local sid
-
 local client = HttpClient:new({
-  url = deviceUrl
+  url = options.url
 })
 
 local function createSession()
@@ -330,15 +338,17 @@ local function createSession()
   end)
 end
 
+local function terminate()
+  if client then
+    client:close()
+  end
+end
+
 local function changeUrl(url)
-  client:close()
+  terminate()
   client = HttpClient:new({
     url = url
   })
-end
-
-local function terminate()
-  client:close()
 end
 
 if options.action then
@@ -383,11 +393,11 @@ if options.action then
   os.exit()
 end
 
-if deviceUrl then
-  --createSession()
-elseif options.discovery then
+if options.discovery then
+  local first = true
   lookupUrls('_undok._tcp.local', function(_, url)
-    if url then
+    if url and first then
+      first = false
       changeUrl(url)
     end
   end, 3000)
@@ -424,12 +434,25 @@ local httpContexts = {
           })):next(getText):next(decodeApiResponse)
         end,
       },
-      ['get-multiple(requestJson)?method=POST'] = function(_, requestJson)
+      ['get-multiple(requestJson)?method=POST'] = function(exchange, requestJson)
         local query = string.format('pin=%s&node=%s', pin, table.concat(requestJson, '&node='))
         logger:info('query is "%s"', query)
-        return client:fetch(formatApiPath('GET_MULTIPLE', query)):next(getText):next(decodeApiResponse)
+        return client:fetch(formatApiPath('GET_MULTIPLE', query)):next(getText):next(decodeApiResponse):catch(function(e) return asFailure(exchange, e) end)
       end,
     },
+    ['discover-first?method=POST'] = function()
+      return Promise:new(function(resolve, reject)
+        lookupUrls('_undok._tcp.local', function(err, url)
+          if err then
+            reject(err)
+          elseif url then
+            resolve(url)
+          else
+            reject('timeout')
+          end
+        end, 3000)
+      end)
+    end,
     ['discover?method=POST'] = function()
       local urls = {}
       return Promise:new(function(resolve, reject)

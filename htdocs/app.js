@@ -51,6 +51,7 @@ var homeTemplate = {
       name: '',
       firstLine: '',
       secondLine: '',
+      boot: true,
       on: false,
       volume: 0,
       muted: false
@@ -85,19 +86,36 @@ var homeTemplate = {
     },
     refresh: function() {
       var self = this;
-      fetch('rest/fsapi/get-multiple', {
-        method: 'POST',
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify([
-          'netRemote.sys.power',
-          'netRemote.sys.audio.volume',
-          'netRemote.sys.audio.mute',
-          'netRemote.play.info.name',
-          'netRemote.play.info.text',
-          'netRemote.sys.info.friendlyName'
-        ])
+      var p;
+      if (this.boot) {
+        this.boot = false;
+        p = fetch('rest/discover-first', {method: 'POST'}).then(rejectIfNotOk).then(getText).then(function(url) {
+          return fetch('rest/url', {
+            method: 'POST',
+            headers: {
+              "Content-Type": "text/plain"
+            },
+            body: url
+          });
+        });
+      } else {
+        p = Promise.resolve();
+      }
+      p.then(function() {
+        return fetch('rest/fsapi/get-multiple', {
+          method: 'POST',
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify([
+            'netRemote.sys.power',
+            'netRemote.sys.audio.volume',
+            'netRemote.sys.audio.mute',
+            'netRemote.play.info.name',
+            'netRemote.play.info.text',
+            'netRemote.sys.info.friendlyName'
+          ])
+        })
       }).then(rejectIfNotOk).then(getJson).then(function(responses) {
         console.log('response ' + JSON.stringify(responses));
         self.on = getResponse(responses, 'netRemote.sys.power').value === 1;
