@@ -15,6 +15,7 @@ FS Audio allows to:
 
 ## What does it look like?
 
+![fsaudio](https://github.com/javalikescript/fsaudio/assets/9386420/d12f54a0-7b00-4f30-8c38-50928081e60e)
 
 
 ## How to install it?
